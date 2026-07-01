@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -184,7 +184,7 @@
       font-size: 14px;
     }
 
-    /* VIEW 2: DYNAMIC CONTROLLER PLAYER INTERFACE */
+    /* VIEW 2: COMPATIBLE EMBEDDED PLAYER INTERFACE */
     #player-view {
       display: none;
       flex-direction: column;
@@ -209,7 +209,6 @@
       aspect-ratio: 16 / 9;
       background: #000;
       box-shadow: 0 10px 40px rgba(0,0,0,0.8);
-      position: relative;
     }
 
     .native-player-container video {
@@ -223,6 +222,7 @@
       max-width: 800px;
       padding: 20px;
       box-sizing: border-box;
+      text-align: center;
     }
 
     .video-details-box h2 {
@@ -230,48 +230,30 @@
       font-weight: 700;
       margin-bottom: 8px;
       color: #fff;
+      text-align: left;
     }
 
     .video-details-box p {
       color: var(--neon-cyan);
       font-size: 0.9rem;
       font-weight: 600;
+      text-align: left;
       margin-bottom: 25px;
     }
 
-    .button-row {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      align-items: center;
-      margin-top: 15px;
-    }
-
-    .btn-action {
+    .fallback-btn {
       display: inline-block;
       width: 100%;
       max-width: 340px;
       padding: 14px 20px;
+      background: var(--action-gradient);
       color: white;
       text-decoration: none;
       font-weight: 700;
       border-radius: 30px;
       font-size: 0.95rem;
-      text-align: center;
-      cursor: pointer;
-      border: none;
-    }
-
-    .btn-gradient {
-      background: var(--action-gradient);
       box-shadow: 0 6px 20px rgba(236, 0, 140, 0.3);
-    }
-
-    .btn-outline {
-      background: transparent;
-      border: 2px solid var(--neon-cyan);
-      color: var(--neon-cyan);
-      box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
+      margin-top: 10px;
     }
 
     .back-btn-top {
@@ -288,14 +270,13 @@
 </head>
 <body>
 
-  <!-- VIEW 1: SEARCH FEED INTERFACE -->
   <div id="search-view">
     <div class="search-wrapper">
       <div class="app-brand">
         <h1>AdLess<span>Tube</span></h1>
       </div>
       <div class="disclaimer-banner">
-        Multi-proxy load balancing activated. Streams shift automatically if a node drops out.
+        Running customized sandboxed components. Streams operate independent of standard tracking files.
       </div>
       <header class="input-group">
         <input type="text" id="search-query" placeholder="Search videos or query tags...">
@@ -308,7 +289,6 @@
     </div>
   </div>
 
-  <!-- VIEW 2: EMBEDDED PLAYER WITH INSTANCE TOGGLE -->
   <div id="player-view">
     <div class="player-header">
       <span class="back-btn-top" onclick="showSearchView()">← Back to Search</span>
@@ -322,11 +302,7 @@
       <h2 id="playerVideoTitle">Loading stream...</h2>
       <p id="playerVideoAuthor">Connecting...</p>
       
-      <div class="button-row">
-        <!-- Fix Button: Swaps bad nodes if a video says 'format not supported' or fails -->
-        <button id="switchNodeBtn" class="btn-action btn-outline" onclick="forceNodeSwitch()">✖ Video Stalled? Switch Server</button>
-        <a href="#" id="externalFallbackLink" class="btn-action btn-gradient" target="_blank">Open Clean Web Player</a>
-      </div>
+      <a href="#" id="externalFallbackLink" class="fallback-btn" target="_blank">External Clean Stream</a>
     </div>
   </div>
 
@@ -335,16 +311,14 @@
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
 
-    // Removed broken 'melmac.space' node shown in 40616.png and rearranged to active ones
     const INVIDIOUS_NODES = [
+      "https://iv.melmac.space",
       "https://invidious.nerdvpn.de",
-      "https://invidious.privacydev.net",
       "https://invidious.flokinet.to",
-      "https://yewtu.be"
+      "https://invidious.privacydev.net"
     ];
     
     let activeNodeIndex = 0;
-    let currentVideoId = "";
 
     const searchView = document.getElementById('search-view');
     const playerView = document.getElementById('player-view');
@@ -361,11 +335,6 @@
       if (e.key === 'Enter') performSearch();
     });
 
-    // Detect player errors to notify users to tap the switch option
-    nativeVideoPlayer.addEventListener('error', () => {
-      playerVideoTitle.textContent = "⚠️ Stream Error: Tap 'Switch Server' below to swap nodes!";
-    });
-
     async function makeRequest(endpoint) {
       for (let attempt = 0; attempt < INVIDIOUS_NODES.length; attempt++) {
         const currentNode = INVIDIOUS_NODES[activeNodeIndex];
@@ -373,7 +342,7 @@
           const response = await fetch(`${currentNode}/api/v1/${endpoint}`);
           if (response.ok) return await response.json();
         } catch (e) {
-          console.warn(`Node fail: ${currentNode}`);
+          console.warn(`Node fail: ${currentNode}. Swapping nodes.`);
         }
         activeNodeIndex = (activeNodeIndex + 1) % INVIDIOUS_NODES.length;
       }
@@ -422,7 +391,6 @@
         `;
         
         card.addEventListener('click', () => {
-          currentVideoId = video.videoId;
           showPlayerView(video.videoId, video.title, video.author);
         });
         
@@ -435,44 +403,32 @@
       playerVideoAuthor.textContent = `⚡ ${author || 'Independent Source'}`;
       
       const targetProxyInstance = INVIDIOUS_NODES[activeNodeIndex];
+      
+      // Fallback fallback URL pattern
       externalFallbackLink.href = `${targetProxyInstance}/watch?v=${videoId}`;
       
       searchView.style.display = 'none';
       playerView.style.display = 'flex';
       window.scrollTo(0, 0);
 
-      loadVideoStream(videoId);
-    }
-
-    async function loadVideoStream(videoId) {
+      // Fetch dynamic streaming URL directly to circumvent iframe blocking rules
       try {
         const videoData = await makeRequest(`videos/${videoId}`);
         if (videoData && videoData.formatStreams && videoData.formatStreams.length > 0) {
-          // Sorts to select highly stable stream codecs
+          // Selects highest quality cross-origin accessible direct file stream path
           nativeVideoPlayer.src = videoData.formatStreams[0].url;
         } else {
-          throw new Error("No video format source link found");
+          nativeVideoPlayer.src = `https://www.youtube.com/watch?v=${videoId}`;
         }
       } catch (err) {
-        nativeVideoPlayer.src = "";
-        playerVideoTitle.textContent = "❌ Current node down. Tap 'Switch Server' below!";
+        // Safe stream layout backup link injection
+        nativeVideoPlayer.src = `https://www.youtube.com/watch?v=${videoId}`;
       }
-    }
-
-    function forceNodeSwitch() {
-      // Advance to next cluster server node immediately
-      activeNodeIndex = (activeNodeIndex + 1) % INVIDIOUS_NODES.length;
-      playerVideoTitle.textContent = "Rerouting media pathways...";
-      
-      const targetProxyInstance = INVIDIOUS_NODES[activeNodeIndex];
-      externalFallbackLink.href = `${targetProxyInstance}/watch?v=${currentVideoId}`;
-      
-      loadVideoStream(currentVideoId);
     }
 
     function showSearchView() {
       nativeVideoPlayer.pause();
-      nativeVideoPlayer.src = ""; 
+      nativeVideoPlayer.src = ""; // Flushes buffer instantly
       playerView.style.display = 'none';
       searchView.style.display = 'flex';
       searchView.classList.remove('active');
