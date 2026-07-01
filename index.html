@@ -311,9 +311,9 @@
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
 
+    // Removed the broken Berlin node to prevent system errors
     const INVIDIOUS_NODES = [
       "https://iv.melmac.space",
-      "https://invidious.nerdvpn.de",
       "https://invidious.flokinet.to",
       "https://invidious.privacydev.net"
     ];
@@ -404,31 +404,36 @@
       
       const targetProxyInstance = INVIDIOUS_NODES[activeNodeIndex];
       
-      // Fallback fallback URL pattern
+      // Setup the backup link to launch on the Invidious instance page instead of breaking
       externalFallbackLink.href = `${targetProxyInstance}/watch?v=${videoId}`;
       
       searchView.style.display = 'none';
       playerView.style.display = 'flex';
       window.scrollTo(0, 0);
 
-      // Fetch dynamic streaming URL directly to circumvent iframe blocking rules
       try {
         const videoData = await makeRequest(`videos/${videoId}`);
         if (videoData && videoData.formatStreams && videoData.formatStreams.length > 0) {
-          // Selects highest quality cross-origin accessible direct file stream path
+          // Play the direct cross-origin video file pathway
           nativeVideoPlayer.src = videoData.formatStreams[0].url;
         } else {
-          nativeVideoPlayer.src = `https://www.youtube.com/watch?v=${videoId}`;
+          handleStreamFallback();
         }
       } catch (err) {
-        // Safe stream layout backup link injection
-        nativeVideoPlayer.src = `https://www.youtube.com/watch?v=${videoId}`;
+        handleStreamFallback();
       }
+    }
+
+    function handleStreamFallback() {
+      nativeVideoPlayer.removeAttribute('src');
+      nativeVideoPlayer.load();
+      playerVideoAuthor.textContent = "Direct streaming blocked by host node. Please click the Clean Stream button below.";
     }
 
     function showSearchView() {
       nativeVideoPlayer.pause();
-      nativeVideoPlayer.src = ""; // Flushes buffer instantly
+      nativeVideoPlayer.removeAttribute('src'); 
+      nativeVideoPlayer.load(); // Completely flushes network buffers immediately
       playerView.style.display = 'none';
       searchView.style.display = 'flex';
       searchView.classList.remove('active');
@@ -438,3 +443,4 @@
   </script>
 </body>
 </html>
+
