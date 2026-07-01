@@ -220,7 +220,7 @@
   <div id="search-view">
     <div class="search-wrapper">
       <div class="app-brand"><h1>AdLess<span>Tube</span></h1></div>
-      <div class="disclaimer-banner">Running sandboxed modules. Advanced failover pathways enabled.</div>
+      <div class="disclaimer-banner">Active CORS defense & multi-engine failover activated.</div>
       <header class="input-group">
         <input type="text" id="search-query" placeholder="Search videos or query tags...">
         <button id="search-btn">EXPLORE</button>
@@ -244,18 +244,18 @@
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
 
-    // High uptime Invidious Nodes for primary indexing
     const INVIDIOUS_NODES = [
       "https://yewtu.be",
       "https://invidious.flokinet.to",
-      "https://invidious.privacydev.net"
+      "https://invidious.privacydev.net",
+      "https://inv.tux.pizza"
     ];
 
-    // High uptime Secondary Piped APIs for failover streaming bypass
     const PIPED_NODES = [
       "https://pipedapi.kavin.rocks",
       "https://piped-api.lunar.icu",
-      "https://api.piped.privacydev.net"
+      "https://api.piped.privacydev.net",
+      "https://pipedapi.colbyw.dev"
     ];
     
     let activeInvidiousIndex = 0;
@@ -278,9 +278,7 @@
     searchBtn.addEventListener('click', performSearch);
     searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') performSearch(); });
 
-    // Automatically triggers alternate processing stream if video fails mid-load
     nativeVideoPlayer.addEventListener('error', () => {
-      console.warn("Invidious stream target failed. Moving to Piped pipeline...");
       if (!usePipedFallback) {
         usePipedFallback = true;
         tryPipedStream(currentVideoId);
@@ -289,58 +287,79 @@
       }
     });
 
-    async function makeInvidiousRequest(endpoint) {
-      for (let i = 0; i < INVIDIOUS_NODES.length; i++) {
-        const node = INVIDIOUS_NODES[activeInvidiousIndex];
-        try {
-          const response = await fetch(`${node}/api/v1/${endpoint}`);
-          if (response.ok) return await response.json();
-        } catch (e) {
-          console.warn(`Invidious Node down: ${node}`);
-        }
-        activeInvidiousIndex = (activeInvidiousIndex + 1) % INVIDIOUS_NODES.length;
-      }
-      throw new Error("Invidious cluster error.");
-    }
-
     async function performSearch() {
       const query = encodeURIComponent(searchInput.value.trim());
       if (!query) return;
 
       searchView.classList.add('active');
-      resultsContainer.innerHTML = '<div class="status-msg" style="color: var(--neon-cyan);">Syncing with proxy array...</div>';
+      resultsContainer.innerHTML = '<div class="status-msg" style="color: var(--neon-cyan);">Connecting to decentralized servers...</div>';
       
-      try {
-        const data = await makeInvidiousRequest(`search?q=${query}&type=video`);
-        displayResults(data);
-      } catch (error) {
-        resultsContainer.innerHTML = '<div class="status-msg" style="color:var(--neon-magenta);">Network busy. Please tap EXPLORE again.</div>';
+      // Phase 1: Try Invidious Nodes for Search
+      for (let i = 0; i < INVIDIOUS_NODES.length; i++) {
+        const node = INVIDIOUS_NODES[activeInvidiousIndex];
+        try {
+          const response = await fetch(`${node}/api/v1/search?q=${query}&type=video`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.length > 0) {
+              displayResults(data, 'invidious');
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn(`Invidious search error at ${node}`);
+        }
+        activeInvidiousIndex = (activeInvidiousIndex + 1) % INVIDIOUS_NODES.length;
       }
+
+      // Phase 2: Failover to Piped Engine Search
+      resultsContainer.innerHTML = '<div class="status-msg" style="color: var(--neon-magenta);">Invidious busy. Routing search via Piped relay...</div>';
+      
+      for (let i = 0; i < PIPED_NODES.length; i++) {
+        const pipedNode = PIPED_NODES[activePipedIndex];
+        try {
+          const response = await fetch(`${pipedNode}/search?q=${query}&filter=videos`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.streams && data.streams.length > 0) {
+              displayResults(data.streams, 'piped');
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn(`Piped search error at ${pipedNode}`);
+        }
+        activePipedIndex = (activePipedIndex + 1) % PIPED_NODES.length;
+      }
+
+      resultsContainer.innerHTML = '<div class="status-msg" style="color:var(--neon-magenta);">All endpoints restricted. Please check connection or try another keyword.</div>';
     }
 
-    function displayResults(items) {
+    function displayResults(items, engine) {
       resultsContainer.innerHTML = "";
-      if (!items || items.length === 0) {
-        resultsContainer.innerHTML = '<div class="status-msg">No media entries found.</div>';
-        return;
-      }
-
+      
       items.forEach(video => {
-        if (!video.videoId) return;
+        // Handle different property structures across engines
+        const id = engine === 'piped' ? video.url.split("?v=")[1] : video.videoId;
+        const title = video.title;
+        const author = engine === 'piped' ? video.uploaderName : video.author;
+        const thumbUrl = engine === 'piped' ? video.thumbnail : (video.videoThumbnails?.find(t => t.quality === 'medium')?.url || `https://img.youtube.com/vi/${id}/mqdefault.jpg`);
+
+        if (!id) return;
+
         const card = document.createElement('div');
         card.className = 'video-card';
-        const thumbUrl = video.videoThumbnails?.find(t => t.quality === 'medium')?.url || `https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`;
 
         card.innerHTML = `
           <div class="thumbnail-box"><img src="${thumbUrl}" alt="cover" loading="lazy"></div>
           <div class="video-info">
-            <div class="video-title">${video.title}</div>
-            <div class="video-author">⚡ ${video.author || 'Independent Source'}</div>
+            <div class="video-title">${title}</div>
+            <div class="video-author">⚡ ${author || 'Independent Source'}</div>
           </div>
         `;
         card.addEventListener('click', () => {
           usePipedFallback = false;
-          showPlayerView(video.videoId, video.title, video.author);
+          showPlayerView(id, title, author);
         });
         resultsContainer.appendChild(card);
       });
@@ -352,50 +371,53 @@
       currentAuthor = author;
 
       playerVideoTitle.textContent = title;
-      playerVideoAuthor.textContent = `⚡ Allocating stream source...`;
+      playerVideoAuthor.textContent = `⚡ Initializing video sandbox stream...`;
       externalFallbackLink.href = `${INVIDIOUS_NODES[activeInvidiousIndex]}/watch?v=${videoId}`;
       
       searchView.style.display = 'none';
       playerView.style.display = 'flex';
       window.scrollTo(0, 0);
 
+      // Attempt to load video via primary architecture
       try {
-        const videoData = await makeInvidiousRequest(`videos/${videoId}`);
-        if (videoData && videoData.formatStreams && videoData.formatStreams.length > 0) {
-          playerVideoAuthor.textContent = `⚡ ${author}`;
-          nativeVideoPlayer.src = videoData.formatStreams[0].url;
-        } else {
-          usePipedFallback = true;
-          tryPipedStream(videoId);
+        const node = INVIDIOUS_NODES[activeInvidiousIndex];
+        const response = await fetch(`${node}/api/v1/videos/${videoId}`);
+        if (response.ok) {
+          const videoData = await response.json();
+          if (videoData && videoData.formatStreams && videoData.formatStreams.length > 0) {
+            playerVideoAuthor.textContent = `⚡ ${author}`;
+            nativeVideoPlayer.src = videoData.formatStreams[0].url;
+            return;
+          }
         }
+        usePipedFallback = true;
+        tryPipedStream(videoId);
       } catch (err) {
         usePipedFallback = true;
         tryPipedStream(videoId);
       }
     }
 
-    // Primary pipeline alternate algorithm
     async function tryPipedStream(videoId) {
-      playerVideoAuthor.textContent = `⚡ Invidious blocked. Routing through secure Piped relay...`;
+      playerVideoAuthor.textContent = `⚡ Switching decryptor engine over to Piped...`;
       
-      for (let i = 0; i < PIPED_NODES.[span_2](start_span)length; i++) {
+      for (let i = 0; i < PIPED_NODES.length; i++) {
         const pipedNode = PIPED_NODES[activePipedIndex];
         try {
-          const response = await fetch(`${pipedNode}/streams/${videoId}`);[span_2](end_span)
+          const response = await fetch(`${pipedNode}/streams/${videoId}`);
           if (response.ok) {
             const data = await response.json();
-            // Pull high-speed combined video stream options from Piped schema
             if (data.videoStreams && data.videoStreams.length > 0) {
               const stream = data.videoStreams.find(s => s.videoOnly === false) || data.videoStreams[0];
               if (stream && stream.url) {
-                playerVideoAuthor.textContent = `⚡ ${currentAuthor} (via Piped Proxy Relay)`;
+                playerVideoAuthor.textContent = `⚡ ${currentAuthor} (Encrypted Bypass)`;
                 nativeVideoPlayer.src = stream.url;
                 return;
               }
             }
           }
         } catch (e) {
-          console.warn(`Piped Node fail: ${pipedNode}`);
+          console.warn(`Piped Stream error at ${pipedNode}`);
         }
         activePipedIndex = (activePipedIndex + 1) % PIPED_NODES.length;
       }
@@ -405,7 +427,7 @@
     function handleFinalFallback() {
       nativeVideoPlayer.removeAttribute('src');
       nativeVideoPlayer.load();
-      playerVideoAuthor.textContent = "Direct proxy extraction restricted on this video file. Please use the link below.";
+      playerVideoAuthor.textContent = "Direct streaming restricted. Tap option below to bypass network firewall.";
     }
 
     function showSearchView() {
