@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -220,9 +220,9 @@
   <div id="search-view">
     <div class="search-wrapper">
       <div class="app-brand"><h1>AdLess<span>Tube</span></h1></div>
-      <div class="disclaimer-banner">Active CORS defense & multi-engine failover activated.</div>
+      <div class="disclaimer-banner">Using high-availability CORS-permissive search relays.</div>
       <header class="input-group">
-        <input type="text" id="search-query" placeholder="Search videos or query tags...">
+        <input type="text" id="search-query" placeholder="Search videos...">
         <button id="search-btn">EXPLORE</button>
       </header>
     </div>
@@ -235,7 +235,7 @@
     <div class="video-details-box">
       <h2 id="playerVideoTitle">Loading stream...</h2>
       <p id="playerVideoAuthor">Connecting...</p>
-      <a href="#" id="externalFallbackLink" class="fallback-btn" target="_blank">External Clean Proxy Stream</a>
+      <a href="#" id="externalFallbackLink" class="fallback-btn" target="_blank">External Clean Stream</a>
     </div>
   </div>
 
@@ -244,26 +244,26 @@
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
 
-    const INVIDIOUS_NODES = [
-      "https://yewtu.be",
-      "https://invidious.flokinet.to",
-      "https://invidious.privacydev.net",
-      "https://inv.tux.pizza"
-    ];
-
-    const PIPED_NODES = [
+    // High availability CORS-relaxed Piped nodes used to fetch search results smoothly
+    const SEARCH_NODES = [
       "https://pipedapi.kavin.rocks",
       "https://piped-api.lunar.icu",
       "https://api.piped.privacydev.net",
-      "https://pipedapi.colbyw.dev"
+      "https://pipedapi.tokhmi.xyz"
+    ];
+
+    // Extraction backend nodes for decoding direct files
+    const STREAM_NODES = [
+      "https://api.piped.privacydev.net",
+      "https://pipedapi.kavin.rocks",
+      "https://yewtu.be"
     ];
     
-    let activeInvidiousIndex = 0;
-    let activePipedIndex = 0;
+    let activeSearchIndex = 0;
+    let activeStreamIndex = 0;
     let currentVideoId = "";
     let currentTitle = "";
     let currentAuthor = "";
-    let usePipedFallback = false;
 
     const searchView = document.getElementById('search-view');
     const playerView = document.getElementById('player-view');
@@ -279,12 +279,8 @@
     searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') performSearch(); });
 
     nativeVideoPlayer.addEventListener('error', () => {
-      if (!usePipedFallback) {
-        usePipedFallback = true;
-        tryPipedStream(currentVideoId);
-      } else {
-        handleFinalFallback();
-      }
+      console.warn("Stream failed mid-load. Attempting alternate engine stream...");
+      tryNextStreamNode();
     });
 
     async function performSearch() {
@@ -292,60 +288,40 @@
       if (!query) return;
 
       searchView.classList.add('active');
-      resultsContainer.innerHTML = '<div class="status-msg" style="color: var(--neon-cyan);">Connecting to decentralized servers...</div>';
+      resultsContainer.innerHTML = '<div class="status-msg" style="color: var(--neon-cyan);">Connecting to query engines...</div>';
       
-      // Phase 1: Try Invidious Nodes for Search
-      for (let i = 0; i < INVIDIOUS_NODES.length; i++) {
-        const node = INVIDIOUS_NODES[activeInvidiousIndex];
+      // Cycle through relaxed CORS endpoints to handle GitHub Pages execution
+      for (let i = 0; i < SEARCH_NODES.length; i++) {
+        const node = SEARCH_NODES[activeSearchIndex];
         try {
-          const response = await fetch(`${node}/api/v1/search?q=${query}&type=video`);
-          if (response.ok) {
-            const data = await response.json();
-            if (data && data.length > 0) {
-              displayResults(data, 'invidious');
-              return;
-            }
-          }
-        } catch (e) {
-          console.warn(`Invidious search error at ${node}`);
-        }
-        activeInvidiousIndex = (activeInvidiousIndex + 1) % INVIDIOUS_NODES.length;
-      }
-
-      // Phase 2: Failover to Piped Engine Search
-      resultsContainer.innerHTML = '<div class="status-msg" style="color: var(--neon-magenta);">Invidious busy. Routing search via Piped relay...</div>';
-      
-      for (let i = 0; i < PIPED_NODES.length; i++) {
-        const pipedNode = PIPED_NODES[activePipedIndex];
-        try {
-          const response = await fetch(`${pipedNode}/search?q=${query}&filter=videos`);
+          const response = await fetch(`${node}/search?q=${query}&filter=videos`);
           if (response.ok) {
             const data = await response.json();
             if (data && data.streams && data.streams.length > 0) {
-              displayResults(data.streams, 'piped');
+              displayResults(data.streams);
               return;
             }
           }
         } catch (e) {
-          console.warn(`Piped search error at ${pipedNode}`);
+          console.warn(`Search error at ${node}, rotating...`);
         }
-        activePipedIndex = (activePipedIndex + 1) % PIPED_NODES.length;
+        activeSearchIndex = (activeSearchIndex + 1) % SEARCH_NODES.length;
       }
 
-      resultsContainer.innerHTML = '<div class="status-msg" style="color:var(--neon-magenta);">All endpoints restricted. Please check connection or try another keyword.</div>';
+      resultsContainer.innerHTML = '<div class="status-msg" style="color:var(--neon-magenta);">All search relays busy. Please try clicking EXPLORE again.</div>';
     }
 
-    function displayResults(items, engine) {
+    function displayResults(streams) {
       resultsContainer.innerHTML = "";
       
-      items.forEach(video => {
-        // Handle different property structures across engines
-        const id = engine === 'piped' ? video.url.split("?v=")[1] : video.videoId;
-        const title = video.title;
-        const author = engine === 'piped' ? video.uploaderName : video.author;
-        const thumbUrl = engine === 'piped' ? video.thumbnail : (video.videoThumbnails?.find(t => t.quality === 'medium')?.url || `https://img.youtube.com/vi/${id}/mqdefault.jpg`);
-
+      streams.forEach(video => {
+        // Extract parameters safely
+        const id = video.url ? video.url.split("?v=")[1] : null;
         if (!id) return;
+
+        const title = video.title;
+        const author = video.uploaderName || 'Independent Source';
+        const thumbUrl = video.thumbnail || `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
 
         const card = document.createElement('div');
         card.className = 'video-card';
@@ -354,80 +330,86 @@
           <div class="thumbnail-box"><img src="${thumbUrl}" alt="cover" loading="lazy"></div>
           <div class="video-info">
             <div class="video-title">${title}</div>
-            <div class="video-author">⚡ ${author || 'Independent Source'}</div>
+            <div class="video-author">⚡ ${author}</div>
           </div>
         `;
         card.addEventListener('click', () => {
-          usePipedFallback = false;
+          activeStreamIndex = 0;
           showPlayerView(id, title, author);
         });
         resultsContainer.appendChild(card);
       });
     }
 
-    async function showPlayerView(videoId, title, author) {
+    function showPlayerView(videoId, title, author) {
       currentVideoId = videoId;
       currentTitle = title;
       currentAuthor = author;
 
       playerVideoTitle.textContent = title;
-      playerVideoAuthor.textContent = `⚡ Initializing video sandbox stream...`;
-      externalFallbackLink.href = `${INVIDIOUS_NODES[activeInvidiousIndex]}/watch?v=${videoId}`;
+      playerVideoAuthor.textContent = `⚡ Allocating active proxy pipeline...`;
+      
+      // Build dynamic fallback
+      externalFallbackLink.href = `https://piped.video/watch?v=${videoId}`;
       
       searchView.style.display = 'none';
       playerView.style.display = 'flex';
       window.scrollTo(0, 0);
 
-      // Attempt to load video via primary architecture
-      try {
-        const node = INVIDIOUS_NODES[activeInvidiousIndex];
-        const response = await fetch(`${node}/api/v1/videos/${videoId}`);
-        if (response.ok) {
-          const videoData = await response.json();
-          if (videoData && videoData.formatStreams && videoData.formatStreams.length > 0) {
-            playerVideoAuthor.textContent = `⚡ ${author}`;
-            nativeVideoPlayer.src = videoData.formatStreams[0].url;
-            return;
-          }
-        }
-        usePipedFallback = true;
-        tryPipedStream(videoId);
-      } catch (err) {
-        usePipedFallback = true;
-        tryPipedStream(videoId);
-      }
+      loadStreamUrl(videoId);
     }
 
-    async function tryPipedStream(videoId) {
-      playerVideoAuthor.textContent = `⚡ Switching decryptor engine over to Piped...`;
-      
-      for (let i = 0; i < PIPED_NODES.length; i++) {
-        const pipedNode = PIPED_NODES[activePipedIndex];
-        try {
-          const response = await fetch(`${pipedNode}/streams/${videoId}`);
+    async function loadStreamUrl(videoId) {
+      if (activeStreamIndex >= STREAM_NODES.length) {
+        handleFinalFallback();
+        return;
+      }
+
+      const node = STREAM_NODES[activeStreamIndex];
+      playerVideoAuthor.textContent = `⚡ Synchronizing decryptors via node [${activeStreamIndex + 1}]...`;
+
+      try {
+        if (node.includes("api.piped") || node.includes("pipedapi")) {
+          // Process Piped Stream Format
+          const response = await fetch(`${node}/streams/${videoId}`);
           if (response.ok) {
             const data = await response.json();
             if (data.videoStreams && data.videoStreams.length > 0) {
               const stream = data.videoStreams.find(s => s.videoOnly === false) || data.videoStreams[0];
               if (stream && stream.url) {
-                playerVideoAuthor.textContent = `⚡ ${currentAuthor} (Encrypted Bypass)`;
+                playerVideoAuthor.textContent = `⚡ ${currentAuthor}`;
                 nativeVideoPlayer.src = stream.url;
                 return;
               }
             }
           }
-        } catch (e) {
-          console.warn(`Piped Stream error at ${pipedNode}`);
+        } else {
+          // Process Invidious Stream Format
+          const response = await fetch(`${node}/api/v1/videos/${videoId}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.formatStreams && data.formatStreams.length > 0) {
+              playerVideoAuthor.textContent = `⚡ ${currentAuthor}`;
+              nativeVideoPlayer.src = data.formatStreams[0].url;
+              return;
+            }
+          }
         }
-        activePipedIndex = (activePipedIndex + 1) % PIPED_NODES.length;
+        tryNextStreamNode();
+      } catch (err) {
+        tryNextStreamNode();
       }
-      handleFinalFallback();
+    }
+
+    function tryNextStreamNode() {
+      activeStreamIndex++;
+      loadStreamUrl(currentVideoId);
     }
 
     function handleFinalFallback() {
       nativeVideoPlayer.removeAttribute('src');
       nativeVideoPlayer.load();
-      playerVideoAuthor.textContent = "Direct streaming restricted. Tap option below to bypass network firewall.";
+      playerVideoAuthor.textContent = "Direct streaming restricted on this node. Please click 'External Clean Stream' below to view instantly.";
     }
 
     function showSearchView() {
