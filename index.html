@@ -33,7 +33,6 @@
       overflow-x: hidden;
     }
 
-    /* VIEW 1: CENTRAL SEARCH GATEWAY */
     #search-view {
       display: flex;
       flex-direction: column;
@@ -55,10 +54,7 @@
       text-align: center;
     }
 
-    .app-brand {
-      margin-bottom: 8px;
-    }
-
+    .app-brand { margin-bottom: 8px; }
     .app-brand h1 {
       font-size: 2.8rem;
       font-weight: 900;
@@ -67,11 +63,7 @@
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-
-    .app-brand span {
-      color: var(--neon-magenta);
-      font-weight: 300;
-    }
+    .app-brand span { color: var(--neon-magenta); font-weight: 300; }
 
     .disclaimer-banner {
       background: rgba(0, 243, 255, 0.05);
@@ -149,16 +141,8 @@
       background-color: #020105;
     }
 
-    .thumbnail-box img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .video-info {
-      padding: 16px;
-    }
-
+    .thumbnail-box img { width: 100%; height: 100%; object-fit: cover; }
+    .video-info { padding: 16px; }
     .video-title {
       font-size: 15px;
       font-weight: 600;
@@ -170,21 +154,9 @@
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
+    .video-author { font-size: 12px; color: var(--neon-cyan); font-weight: 700; }
+    .status-msg { text-align: center; padding: 50px 20px; color: var(--text-muted); font-size: 14px; }
 
-    .video-author {
-      font-size: 12px;
-      color: var(--neon-cyan);
-      font-weight: 700;
-    }
-
-    .status-msg {
-      text-align: center;
-      padding: 50px 20px;
-      color: var(--text-muted);
-      font-size: 14px;
-    }
-
-    /* VIEW 2: COMPATIBLE EMBEDDED PLAYER INTERFACE */
     #player-view {
       display: none;
       flex-direction: column;
@@ -211,35 +183,10 @@
       box-shadow: 0 10px 40px rgba(0,0,0,0.8);
     }
 
-    .native-player-container video {
-      width: 100%;
-      height: 100%;
-      outline: none;
-    }
-
-    .video-details-box {
-      width: 100%;
-      max-width: 800px;
-      padding: 20px;
-      box-sizing: border-box;
-      text-align: center;
-    }
-
-    .video-details-box h2 {
-      font-size: 1.25rem;
-      font-weight: 700;
-      margin-bottom: 8px;
-      color: #fff;
-      text-align: left;
-    }
-
-    .video-details-box p {
-      color: var(--neon-cyan);
-      font-size: 0.9rem;
-      font-weight: 600;
-      text-align: left;
-      margin-bottom: 25px;
-    }
+    .native-player-container video { width: 100%; height: 100%; outline: none; }
+    .video-details-box { width: 100%; max-width: 800px; padding: 20px; box-sizing: border-box; text-align: center; }
+    .video-details-box h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; color: #fff; text-align: left; }
+    .video-details-box p { color: var(--neon-cyan); font-size: 0.9rem; font-weight: 600; text-align: left; margin-bottom: 25px; }
 
     .fallback-btn {
       display: inline-block;
@@ -272,37 +219,23 @@
 
   <div id="search-view">
     <div class="search-wrapper">
-      <div class="app-brand">
-        <h1>AdLess<span>Tube</span></h1>
-      </div>
-      <div class="disclaimer-banner">
-        Running customized sandboxed components. Streams operate independent of standard tracking files.
-      </div>
+      <div class="app-brand"><h1>AdLess<span>Tube</span></h1></div>
+      <div class="disclaimer-banner">Running sandboxed modules. Advanced failover pathways enabled.</div>
       <header class="input-group">
         <input type="text" id="search-query" placeholder="Search videos or query tags...">
         <button id="search-btn">EXPLORE</button>
       </header>
     </div>
-
-    <div id="results">
-      <div class="status-msg">Enter a video keyword to initialize streaming pathways...</div>
-    </div>
+    <div id="results"><div class="status-msg">Enter a video keyword to initialize streaming pathways...</div></div>
   </div>
 
   <div id="player-view">
-    <div class="player-header">
-      <span class="back-btn-top" onclick="showSearchView()">← Back to Search</span>
-    </div>
-    
-    <div class="native-player-container">
-      <video id="nativeVideoPlayer" controls autoplay playsinline></video>
-    </div>
-
+    <div class="player-header"><span class="back-btn-top" onclick="showSearchView()">← Back to Search</span></div>
+    <div class="native-player-container"><video id="nativeVideoPlayer" controls autoplay playsinline></video></div>
     <div class="video-details-box">
       <h2 id="playerVideoTitle">Loading stream...</h2>
       <p id="playerVideoAuthor">Connecting...</p>
-      
-      <a href="#" id="externalFallbackLink" class="fallback-btn" target="_blank">External Clean Stream</a>
+      <a href="#" id="externalFallbackLink" class="fallback-btn" target="_blank">External Clean Proxy Stream</a>
     </div>
   </div>
 
@@ -311,19 +244,26 @@
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
 
-    // Refreshed list of high-uptime global nodes
+    // High uptime Invidious Nodes for primary indexing
     const INVIDIOUS_NODES = [
       "https://yewtu.be",
       "https://invidious.flokinet.to",
-      "https://invidious.privacydev.net",
-      "https://inv.tux.pizza"
+      "https://invidious.privacydev.net"
+    ];
+
+    // High uptime Secondary Piped APIs for failover streaming bypass
+    const PIPED_NODES = [
+      "https://pipedapi.kavin.rocks",
+      "https://piped-api.lunar.icu",
+      "https://api.piped.privacydev.net"
     ];
     
-    let activeNodeIndex = 0;
+    let activeInvidiousIndex = 0;
+    let activePipedIndex = 0;
     let currentVideoId = "";
     let currentTitle = "";
     let currentAuthor = "";
-    let loadAttempts = 0;
+    let usePipedFallback = false;
 
     const searchView = document.getElementById('search-view');
     const playerView = document.getElementById('player-view');
@@ -336,28 +276,31 @@
     const externalFallbackLink = document.getElementById('externalFallbackLink');
 
     searchBtn.addEventListener('click', performSearch);
-    searchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') performSearch();
-    });
+    searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') performSearch(); });
 
-    // Native player error monitoring loop
+    // Automatically triggers alternate processing stream if video fails mid-load
     nativeVideoPlayer.addEventListener('error', () => {
-      console.warn("Playback error encountered on node. Attempting failover...");
-      handleFailover();
+      console.warn("Invidious stream target failed. Moving to Piped pipeline...");
+      if (!usePipedFallback) {
+        usePipedFallback = true;
+        tryPipedStream(currentVideoId);
+      } else {
+        handleFinalFallback();
+      }
     });
 
-    async function makeRequest(endpoint) {
-      for (let attempt = 0; attempt < INVIDIOUS_NODES.length; attempt++) {
-        const currentNode = INVIDIOUS_NODES[activeNodeIndex];
+    async function makeInvidiousRequest(endpoint) {
+      for (let i = 0; i < INVIDIOUS_NODES.length; i++) {
+        const node = INVIDIOUS_NODES[activeInvidiousIndex];
         try {
-          const response = await fetch(`${currentNode}/api/v1/${endpoint}`);
+          const response = await fetch(`${node}/api/v1/${endpoint}`);
           if (response.ok) return await response.json();
         } catch (e) {
-          console.warn(`Node API fail: ${currentNode}. Swapping nodes.`);
+          console.warn(`Invidious Node down: ${node}`);
         }
-        activeNodeIndex = (activeNodeIndex + 1) % INVIDIOUS_NODES.length;
+        activeInvidiousIndex = (activeInvidiousIndex + 1) % INVIDIOUS_NODES.length;
       }
-      throw new Error("Cluster limit.");
+      throw new Error("Invidious cluster error.");
     }
 
     async function performSearch() {
@@ -365,13 +308,13 @@
       if (!query) return;
 
       searchView.classList.add('active');
-      resultsContainer.innerHTML = '<div class="status-msg" style="color: var(--neon-cyan);">Connecting to decentralized servers...</div>';
+      resultsContainer.innerHTML = '<div class="status-msg" style="color: var(--neon-cyan);">Syncing with proxy array...</div>';
       
       try {
-        const data = await makeRequest(`search?q=${query}&type=video`);
+        const data = await makeInvidiousRequest(`search?q=${query}&type=video`);
         displayResults(data);
       } catch (error) {
-        resultsContainer.innerHTML = '<div class="status-msg" style="color:var(--neon-magenta);">All backend nodes busy. Please tap EXPLORE again.</div>';
+        resultsContainer.innerHTML = '<div class="status-msg" style="color:var(--neon-magenta);">Network busy. Please tap EXPLORE again.</div>';
       }
     }
 
@@ -384,28 +327,21 @@
 
       items.forEach(video => {
         if (!video.videoId) return;
-
         const card = document.createElement('div');
         card.className = 'video-card';
-        
-        const thumbUrl = video.videoThumbnails?.find(t => t.quality === 'medium')?.url 
-          || `https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`;
+        const thumbUrl = video.videoThumbnails?.find(t => t.quality === 'medium')?.url || `https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`;
 
         card.innerHTML = `
-          <div class="thumbnail-box">
-            <img src="${thumbUrl}" alt="media cover" loading="lazy">
-          </div>
+          <div class="thumbnail-box"><img src="${thumbUrl}" alt="cover" loading="lazy"></div>
           <div class="video-info">
             <div class="video-title">${video.title}</div>
             <div class="video-author">⚡ ${video.author || 'Independent Source'}</div>
           </div>
         `;
-        
         card.addEventListener('click', () => {
-          loadAttempts = 0; 
+          usePipedFallback = false;
           showPlayerView(video.videoId, video.title, video.author);
         });
-        
         resultsContainer.appendChild(card);
       });
     }
@@ -416,40 +352,60 @@
       currentAuthor = author;
 
       playerVideoTitle.textContent = title;
-      playerVideoAuthor.textContent = `⚡ Connecting via Stream Node ${activeNodeIndex + 1}...`;
-      
-      const targetProxyInstance = INVIDIOUS_NODES[activeNodeIndex];
-      externalFallbackLink.href = `${targetProxyInstance}/watch?v=${videoId}`;
+      playerVideoAuthor.textContent = `⚡ Allocating stream source...`;
+      externalFallbackLink.href = `${INVIDIOUS_NODES[activeInvidiousIndex]}/watch?v=${videoId}`;
       
       searchView.style.display = 'none';
       playerView.style.display = 'flex';
       window.scrollTo(0, 0);
 
       try {
-        const videoData = await makeRequest(`videos/${videoId}`);
+        const videoData = await makeInvidiousRequest(`videos/${videoId}`);
         if (videoData && videoData.formatStreams && videoData.formatStreams.length > 0) {
-          playerVideoAuthor.textContent = `⚡ ${author || 'Independent Source'}`;
+          playerVideoAuthor.textContent = `⚡ ${author}`;
           nativeVideoPlayer.src = videoData.formatStreams[0].url;
         } else {
-          handleFailover();
+          usePipedFallback = true;
+          tryPipedStream(videoId);
         }
       } catch (err) {
-        handleFailover();
+        usePipedFallback = true;
+        tryPipedStream(videoId);
       }
     }
 
-    function handleFailover() {
-      loadAttempts++;
-      if (loadAttempts < INVIDIOUS_NODES.length) {
-        // Move to the next node automatically and re-request
-        activeNodeIndex = (activeNodeIndex + 1) % INVIDIOUS_NODES.length;
-        showPlayerView(currentVideoId, currentTitle, currentAuthor);
-      } else {
-        // If all available direct nodes fail
-        nativeVideoPlayer.removeAttribute('src');
-        nativeVideoPlayer.load();
-        playerVideoAuthor.textContent = "Direct stream path restricted. Please use the 'External Clean Stream' tunnel option below.";
+    // Primary pipeline alternate algorithm
+    async function tryPipedStream(videoId) {
+      playerVideoAuthor.textContent = `⚡ Invidious blocked. Routing through secure Piped relay...`;
+      
+      for (let i = 0; i < PIPED_NODES.[span_2](start_span)length; i++) {
+        const pipedNode = PIPED_NODES[activePipedIndex];
+        try {
+          const response = await fetch(`${pipedNode}/streams/${videoId}`);[span_2](end_span)
+          if (response.ok) {
+            const data = await response.json();
+            // Pull high-speed combined video stream options from Piped schema
+            if (data.videoStreams && data.videoStreams.length > 0) {
+              const stream = data.videoStreams.find(s => s.videoOnly === false) || data.videoStreams[0];
+              if (stream && stream.url) {
+                playerVideoAuthor.textContent = `⚡ ${currentAuthor} (via Piped Proxy Relay)`;
+                nativeVideoPlayer.src = stream.url;
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`Piped Node fail: ${pipedNode}`);
+        }
+        activePipedIndex = (activePipedIndex + 1) % PIPED_NODES.length;
       }
+      handleFinalFallback();
+    }
+
+    function handleFinalFallback() {
+      nativeVideoPlayer.removeAttribute('src');
+      nativeVideoPlayer.load();
+      playerVideoAuthor.textContent = "Direct proxy extraction restricted on this video file. Please use the link below.";
     }
 
     function showSearchView() {
