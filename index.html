@@ -311,14 +311,19 @@
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
 
-    // Removed the broken Berlin node to prevent system errors
+    // Refreshed list of high-uptime global nodes
     const INVIDIOUS_NODES = [
-      "https://iv.melmac.space",
+      "https://yewtu.be",
       "https://invidious.flokinet.to",
-      "https://invidious.privacydev.net"
+      "https://invidious.privacydev.net",
+      "https://inv.tux.pizza"
     ];
     
     let activeNodeIndex = 0;
+    let currentVideoId = "";
+    let currentTitle = "";
+    let currentAuthor = "";
+    let loadAttempts = 0;
 
     const searchView = document.getElementById('search-view');
     const playerView = document.getElementById('player-view');
@@ -335,6 +340,12 @@
       if (e.key === 'Enter') performSearch();
     });
 
+    // Native player error monitoring loop
+    nativeVideoPlayer.addEventListener('error', () => {
+      console.warn("Playback error encountered on node. Attempting failover...");
+      handleFailover();
+    });
+
     async function makeRequest(endpoint) {
       for (let attempt = 0; attempt < INVIDIOUS_NODES.length; attempt++) {
         const currentNode = INVIDIOUS_NODES[activeNodeIndex];
@@ -342,7 +353,7 @@
           const response = await fetch(`${currentNode}/api/v1/${endpoint}`);
           if (response.ok) return await response.json();
         } catch (e) {
-          console.warn(`Node fail: ${currentNode}. Swapping nodes.`);
+          console.warn(`Node API fail: ${currentNode}. Swapping nodes.`);
         }
         activeNodeIndex = (activeNodeIndex + 1) % INVIDIOUS_NODES.length;
       }
@@ -391,6 +402,7 @@
         `;
         
         card.addEventListener('click', () => {
+          loadAttempts = 0; 
           showPlayerView(video.videoId, video.title, video.author);
         });
         
@@ -399,12 +411,14 @@
     }
 
     async function showPlayerView(videoId, title, author) {
+      currentVideoId = videoId;
+      currentTitle = title;
+      currentAuthor = author;
+
       playerVideoTitle.textContent = title;
-      playerVideoAuthor.textContent = `⚡ ${author || 'Independent Source'}`;
+      playerVideoAuthor.textContent = `⚡ Connecting via Stream Node ${activeNodeIndex + 1}...`;
       
       const targetProxyInstance = INVIDIOUS_NODES[activeNodeIndex];
-      
-      // Setup the backup link to launch on the Invidious instance page instead of breaking
       externalFallbackLink.href = `${targetProxyInstance}/watch?v=${videoId}`;
       
       searchView.style.display = 'none';
@@ -414,26 +428,34 @@
       try {
         const videoData = await makeRequest(`videos/${videoId}`);
         if (videoData && videoData.formatStreams && videoData.formatStreams.length > 0) {
-          // Play the direct cross-origin video file pathway
+          playerVideoAuthor.textContent = `⚡ ${author || 'Independent Source'}`;
           nativeVideoPlayer.src = videoData.formatStreams[0].url;
         } else {
-          handleStreamFallback();
+          handleFailover();
         }
       } catch (err) {
-        handleStreamFallback();
+        handleFailover();
       }
     }
 
-    function handleStreamFallback() {
-      nativeVideoPlayer.removeAttribute('src');
-      nativeVideoPlayer.load();
-      playerVideoAuthor.textContent = "Direct streaming blocked by host node. Please click the Clean Stream button below.";
+    function handleFailover() {
+      loadAttempts++;
+      if (loadAttempts < INVIDIOUS_NODES.length) {
+        // Move to the next node automatically and re-request
+        activeNodeIndex = (activeNodeIndex + 1) % INVIDIOUS_NODES.length;
+        showPlayerView(currentVideoId, currentTitle, currentAuthor);
+      } else {
+        // If all available direct nodes fail
+        nativeVideoPlayer.removeAttribute('src');
+        nativeVideoPlayer.load();
+        playerVideoAuthor.textContent = "Direct stream path restricted. Please use the 'External Clean Stream' tunnel option below.";
+      }
     }
 
     function showSearchView() {
       nativeVideoPlayer.pause();
       nativeVideoPlayer.removeAttribute('src'); 
-      nativeVideoPlayer.load(); // Completely flushes network buffers immediately
+      nativeVideoPlayer.load();
       playerView.style.display = 'none';
       searchView.style.display = 'flex';
       searchView.classList.remove('active');
@@ -443,4 +465,3 @@
   </script>
 </body>
 </html>
-
